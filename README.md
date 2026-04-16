@@ -65,7 +65,7 @@ gastos-personales-ia/
 ## Cómo ejecutar el sistema (entorno ya instalado)
 
 1. Clonar el repositorio  
-   `git clone https://github.com/BdeJMM/Proyecto_Gestion_datos_IA`
+   `git clone https://github.com/BdeJMM/Proyecto_Gestion_datos_IA[https://github.com/BdeJMM/Proyecto_Gestion_datos_IA]`
 
 2. Entrar a la carpeta del proyecto  
    `cd gastos-personales-ia`
@@ -77,13 +77,6 @@ gastos-personales-ia/
    `python scripts/entrenamiento.py`
 
 4. Visualizar los resultados y métricas desde consola o dashboard  
-
----
-
-## Documentación técnica
-
-El documento de diseño técnico está disponible en:  
-[`docs/diseño_tecnico.pdf`](docs/diseño_tecnico.pdf)
 
 ---
 
