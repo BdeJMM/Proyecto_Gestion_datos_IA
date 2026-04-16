@@ -65,7 +65,7 @@ gastos-personales-ia/
 ## Cómo ejecutar el sistema (entorno ya instalado)
 
 1. Clonar el repositorio  
-   `git clone https://github.com/BdeJMM/Proyecto_Gestion_datos_IA[https://github.com/BdeJMM/Proyecto_Gestion_datos_IA]`
+   `git clone https://github.com/BdeJMM/Proyecto_Gestion_datos_IA`
 
 2. Entrar a la carpeta del proyecto  
    `cd gastos-personales-ia`
