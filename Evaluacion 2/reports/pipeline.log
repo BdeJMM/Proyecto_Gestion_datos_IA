@@ -1,0 +1,4 @@
+2026-05-28 20:49:49 | INFO     | pipeline | ✓ Módulos EV2 cargados correctamente
+2026-05-28 20:49:49 | ERROR    | pipeline | ✗ Error importando train/export_sql: No module named 'train'
+2026-05-28 20:50:45 | INFO     | pipeline | ✓ Módulos EV2 cargados correctamente
+2026-05-28 20:50:45 | ERROR    | pipeline | ✗ Error importando train/export_sql: No module named 'sklearn'
