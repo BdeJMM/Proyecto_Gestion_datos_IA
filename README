@@ -63,3 +63,62 @@ git checkout EV2
 ### 2. Configurar variables de entorno
 Crear archivo `.env` en la raíz del proyecto:
 
+ORACLE_USER=ADMIN
+
+ORACLE_PASSWORD=TuPassword
+
+ORACLE_DSN=gestiondatosia_tp
+
+ORACLE_WALLET_DIR=Wallet_GESTIONDATOIA
+
+ORACLE_WALLET_PASSWORD=TuPasswordWallet
+
+### 3. Agregar el Wallet de Oracle
+Descargar el wallet desde Oracle Cloud Console y descomprimirlo en:
+
+Wallet_GESTIONDATOIA/
+
+├── cwallet.sso
+
+├── ewallet.pem
+
+├── tnsnames.ora
+
+└── sqlnet.ora
+
+### 4. Ejecutar con Docker
+```bash
+docker-compose up
+```
+
+### 5. Ejecutar sin Docker
+```bash
+pip install -r requirements.txt
+python pipeline.py
+```
+
+## Modelos entrenados
+
+| Modelo | Métrica principal |
+|--------|------------------|
+| Regresión Logística | AUC-ROC |
+| XGBoost | AUC-ROC |
+
+## Tablas en Oracle
+
+| Tabla | Descripción |
+|-------|-------------|
+| `clientes_validos` | Registros que pasaron validación |
+| `registros_erroneos` | Registros rechazados con motivo |
+| `metricas_modelo` | Resultados de cada modelo |
+| `rendimiento_pipeline` | Latencia y completitud por etapa |
+
+## Tecnologías
+
+- **Python 3.11**
+- **Pandas** — procesamiento de datos
+- **Scikit-learn** — Regresión Logística
+- **XGBoost** — modelo principal
+- **SQLAlchemy + oracledb** — conexión a Oracle
+- **Oracle Autonomous Database** — almacenamiento cloud
+- **Docker** — contenedorización
