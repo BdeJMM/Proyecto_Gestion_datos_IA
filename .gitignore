@@ -1,0 +1,15 @@
+# Wallet (contiene credenciales)
+Wallet_GESTIONDATOSIA/
+
+# Logs y datos generados
+logs/
+data/
+reports/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Variables de entorno
+.env
