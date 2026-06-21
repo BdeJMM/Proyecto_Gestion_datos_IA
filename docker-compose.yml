@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  pipeline:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./Wallet_GESTIONDATOIA:/app/Wallet_GESTIONDATOIA:ro
