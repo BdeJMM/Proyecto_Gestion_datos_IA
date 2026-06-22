@@ -1,0 +1,26 @@
+name: Build and extract from Docker
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Construir imagen
+        run: docker build -t mi-imagen .
+
+      - name: Extraer dependencias del contenedor
+        run: |
+          docker create --name temp mi-imagen
+          docker cp temp:/usr/local/lib/python3.11/site-packages ./output
+          docker rm temp
+
+      - name: Subir como artefacto descargable
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependencias-python
+          path: ./output
