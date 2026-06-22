@@ -1,0 +1,8 @@
+.env
+Wallet_GESTIONDATOIA/
+logs/
+reports/
+data/processed/
+data/errores/
+__pycache__/
+*.pyc
