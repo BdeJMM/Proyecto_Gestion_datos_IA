@@ -5,7 +5,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./Wallet_GESTIONDATOIA:/app/Wallet_GESTIONDATOIA:ro
+      - ./Wallet_GESTIONDATOSIA:/app/Wallet_GESTIONDATOSIA:ro
 
   dashboard:
     build: .
@@ -15,4 +15,4 @@ services:
     env_file:
       - .env
     volumes:
-      - ./Wallet_GESTIONDATOIA:/app/Wallet_GESTIONDATOIA:ro
+      - ./Wallet_GESTIONDATOSIA:/app/Wallet_GESTIONDATOSIA:ro
