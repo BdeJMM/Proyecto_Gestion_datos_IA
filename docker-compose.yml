@@ -1,0 +1,18 @@
+version: "3.8"
+services:
+  pipeline:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./Wallet_GESTIONDATOIA:/app/Wallet_GESTIONDATOIA:ro
+
+  dashboard:
+    build: .
+    command: streamlit run dashboard.py --server.port=8501 --server.address=0.0.0.0
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - ./Wallet_GESTIONDATOIA:/app/Wallet_GESTIONDATOIA:ro
