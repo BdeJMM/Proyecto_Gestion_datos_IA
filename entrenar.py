@@ -6,12 +6,14 @@ from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
+    RocCurveDisplay,
     accuracy_score,
     confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
+    RocCurveDisplay
 )
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -47,6 +49,7 @@ def _evaluar(nombre: str, modelo, X_test, y_test) -> dict:
         "f1": f1_score(y_test, pred, pos_label="yes"),
         "auc_roc": roc_auc_score((y_test == "yes").astype(int), proba),
         "matriz_confusion": confusion_matrix(y_test, pred, labels=["no", "yes"]),
+        "gini": 2 * roc_auc_score((y_test == "yes").astype(int), proba) - 1,
     }
 
     log.info(f"-- {nombre} --")
@@ -56,6 +59,7 @@ def _evaluar(nombre: str, modelo, X_test, y_test) -> dict:
     log.info(f"F1-score:  {metricas['f1']:.4f}")
     log.info(f"AUC-ROC:   {metricas['auc_roc']:.4f}")
     log.info(f"Matriz de confusión [filas=real, cols=predicho] (orden: no, yes):\n{metricas['matriz_confusion']}")
+    log.info(f"Gini:      {metricas['gini']:.4f}")
 
     return metricas
 
@@ -112,6 +116,13 @@ def entrenar(df: pd.DataFrame, guardar_grafico: str | None = "reports/matriz_con
         disp.figure_.suptitle("Matriz de confusión — XGBoost")
         disp.figure_.savefig(guardar_grafico, dpi=150, bbox_inches="tight")
         log.info(f"Gráfico de matriz de confusión guardado en: {guardar_grafico}")
+        roc_path = guardar_grafico.replace("matriz_confusion", "curva_roc")
+        RocCurveDisplay.from_predictions(
+            (y_test == "yes").astype(int),
+            pipe_xgb.predict_proba(X_test)[:, 1],
+            name="XGBoost"
+        ).figure_.savefig(roc_path, dpi=150, bbox_inches="tight")
+        log.info(f"Curva ROC guardada en: {roc_path}")
 
     log.info(f"Tiempo total de entrenamiento: {time.time() - t0:.2f} s")
     log.info("-- Entrenamiento finalizado --")
