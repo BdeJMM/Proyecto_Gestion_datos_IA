@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 load_dotenv()  
 
-WALLET_DIR = Path(os.getenv("ORACLE_WALLET_DIR", "Wallet_GESTIONDATOIA")).resolve()
+WALLET_DIR = Path(os.getenv("ORACLE_WALLET_DIR", "Wallet_GESTIONDATOSIA")).resolve()
 USUARIO    = os.getenv("ORACLE_USER", "ADMIN")
 PASSWORD   = os.getenv("ORACLE_PASSWORD")
 DSN        = os.getenv("ORACLE_DSN", "gestiondatosia_tp")
