@@ -40,8 +40,6 @@ def _evaluar(nombre: str, modelo, X_test, y_test) -> dict:
 
     pred = modelo.predict(X_test)
     proba = modelo.predict_proba(X_test)[:, 1]
-    y_test_bin = (y_test == "yes").astype(int)
-    fpr, tpr, _ = roc_curve(y_test_bin, proba)
 
     metricas = {
         "modelo": nombre,
@@ -49,14 +47,13 @@ def _evaluar(nombre: str, modelo, X_test, y_test) -> dict:
         "precision": precision_score(y_test, pred, pos_label="yes"),
         "recall": recall_score(y_test, pred, pos_label="yes"),
         "f1": f1_score(y_test, pred, pos_label="yes"),
-        "auc_roc": roc_auc_score(y_test_bin, proba),
+        "auc_roc": roc_auc_score((y_test == "yes").astype(int), proba),
         "matriz_confusion": confusion_matrix(y_test, pred, labels=["no", "yes"]),
-        "gini": 2 * roc_auc_score(y_test_bin, proba) - 1,
-        # fpr/tpr se guardan para poder reconstruir la curva ROC más adelante
-        # (en el dashboard, leyéndolos desde la base de datos) sin depender
-        # de una imagen generada localmente.
-        "fpr": fpr.tolist(),
-        "tpr": tpr.tolist(),
+        "gini": 2 * roc_auc_score((y_test == "yes").astype(int), proba) - 1,
+        # _y_test_bin y _proba se guardan aparte (no van a la base de datos),
+        # se usan más abajo para dibujar la curva ROC comparando ambos modelos.
+        "_y_test_bin": (y_test == "yes").astype(int),
+        "_proba": proba,
     }
 
     log.info(f"-- {nombre} --")
@@ -112,6 +109,24 @@ def entrenar(df: pd.DataFrame, guardar_grafico: str | None = "reports/matriz_con
 
     metricas_xgb = _evaluar("XGBoost (modelo principal)", _Adaptador(pipe_xgb), X_test, y_test)
 
+    # ── Curva ROC: se calcula siempre (no solo si se guarda la imagen), ──────
+    # porque guardado.py necesita fpr/tpr para insertarlos en la base de datos.
+    fpr_base, tpr_base, _ = roc_curve(
+        metricas_baseline["_y_test_bin"], metricas_baseline["_proba"]
+    )
+    fpr_xgb, tpr_xgb, _ = roc_curve(
+        metricas_xgb["_y_test_bin"], metricas_xgb["_proba"]
+    )
+    # Se guardan como listas (JSON-serializables) para la base de datos.
+    # OJO: para graficar más abajo se usan fpr_base/tpr_base (arrays de numpy),
+    # NUNCA estas listas — pasarle una lista de Python a RocCurveDisplay hace
+    # que scikit-learn (>=1.7) la interprete como "múltiples curvas" en vez de
+    # "una curva con muchos puntos", y truena con un error de longitudes.
+    metricas_baseline["fpr"] = fpr_base.tolist()
+    metricas_baseline["tpr"] = tpr_base.tolist()
+    metricas_xgb["fpr"] = fpr_xgb.tolist()
+    metricas_xgb["tpr"] = tpr_xgb.tolist()
+
     if guardar_grafico:
         from pathlib import Path
         Path(guardar_grafico).parent.mkdir(parents=True, exist_ok=True)
@@ -126,15 +141,11 @@ def entrenar(df: pd.DataFrame, guardar_grafico: str | None = "reports/matriz_con
 
         # ── Curva ROC — compara Regresión Logística vs XGBoost ────────────
         ruta_roc = str(Path(guardar_grafico).parent / "curva_roc.png")
-        disp_roc = RocCurveDisplay(
-            fpr=metricas_baseline["fpr"], tpr=metricas_baseline["tpr"],
-            roc_auc=metricas_baseline["auc_roc"],
-        )
+        disp_roc = RocCurveDisplay(fpr=fpr_base, tpr=tpr_base, roc_auc=metricas_baseline["auc_roc"])
         disp_roc.plot(name="Regresión Logística")
-        RocCurveDisplay(
-            fpr=metricas_xgb["fpr"], tpr=metricas_xgb["tpr"],
-            roc_auc=metricas_xgb["auc_roc"],
-        ).plot(ax=disp_roc.ax_, name="XGBoost")
+        RocCurveDisplay(fpr=fpr_xgb, tpr=tpr_xgb, roc_auc=metricas_xgb["auc_roc"]).plot(
+            ax=disp_roc.ax_, name="XGBoost"
+        )
         disp_roc.ax_.legend(loc="lower right")
         disp_roc.figure_.suptitle("Curva ROC — comparación de modelos")
         disp_roc.figure_.savefig(ruta_roc, dpi=150, bbox_inches="tight")
