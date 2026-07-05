@@ -1,8 +1,0 @@
-.env
-Wallet_GESTIONDATOSIA/
-logs/
-reports/
-data/processed/
-data/errores/
-__pycache__/
-*.pyc
