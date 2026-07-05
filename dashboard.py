@@ -10,7 +10,7 @@ st.title("Dashboard — Gestión Datos IA")
 engine = get_engine()
 
 df_metricas = pd.read_sql("""
-    SELECT modelo, auc_roc, gini, f1_score, accuracy, precision_m, recall, fecha_carga
+    SELECT ejecucion, modelo, auc_roc, gini, f1_score, accuracy, precision_m, recall, fecha_carga
     FROM metricas_modelo
     ORDER BY fecha_carga DESC
 """, engine)
