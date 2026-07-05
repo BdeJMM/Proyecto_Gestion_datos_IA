@@ -70,6 +70,7 @@ TABLAS = {
             recall      NUMERIC(8,4),
             f1_score    NUMERIC(8,4),
             auc_roc     NUMERIC(8,4),
+            gini        NUMERIC(8,4),
             fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """,
@@ -87,6 +88,33 @@ TABLAS = {
             exito         VARCHAR(5),
             error         VARCHAR(500),
             fecha_carga   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """,
+
+    "matriz_confusion": """
+        CREATE TABLE matriz_confusion (
+            id          SERIAL PRIMARY KEY,
+            ejecucion   VARCHAR(30),
+            condicion   VARCHAR(20),
+            modelo      VARCHAR(50),
+            tn          NUMERIC,
+            fp          NUMERIC,
+            fn          NUMERIC,
+            tp          NUMERIC,
+            fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """,
+
+    "curva_roc": """
+        CREATE TABLE curva_roc (
+            id          SERIAL PRIMARY KEY,
+            ejecucion   VARCHAR(30),
+            condicion   VARCHAR(20),
+            modelo      VARCHAR(50),
+            fpr         TEXT,
+            tpr         TEXT,
+            auc_roc     NUMERIC(8,4),
+            fecha_carga TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """,
 }
@@ -108,6 +136,18 @@ def crear_tablas(engine=None) -> None:
                 conn.execute(text(ddl))
                 conn.commit()
                 log.info(f"Tabla creada: {nombre}")
+
+        # ── Migración: agregar columna 'gini' si la tabla ya existía sin ella ──
+        if "metricas_modelo" in tablas_existentes:
+            columnas = [c["name"].lower() for c in inspector.get_columns("metricas_modelo")]
+            if "gini" not in columnas:
+                conn.execute(text(
+                    "ALTER TABLE metricas_modelo ADD COLUMN gini NUMERIC(8,4)"
+                ))
+                conn.commit()
+                log.info("Columna 'gini' agregada a metricas_modelo (migración automática)")
+            else:
+                log.info("Columna 'gini' ya existe en metricas_modelo")
 
     log.info("Creación de tablas finalizada")
 

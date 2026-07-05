@@ -6,12 +6,14 @@ from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (
     ConfusionMatrixDisplay,
+    RocCurveDisplay,
     accuracy_score,
     confusion_matrix,
     f1_score,
     precision_score,
     recall_score,
     roc_auc_score,
+    roc_curve,
 )
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
@@ -38,6 +40,8 @@ def _evaluar(nombre: str, modelo, X_test, y_test) -> dict:
 
     pred = modelo.predict(X_test)
     proba = modelo.predict_proba(X_test)[:, 1]
+    y_test_bin = (y_test == "yes").astype(int)
+    fpr, tpr, _ = roc_curve(y_test_bin, proba)
 
     metricas = {
         "modelo": nombre,
@@ -45,8 +49,14 @@ def _evaluar(nombre: str, modelo, X_test, y_test) -> dict:
         "precision": precision_score(y_test, pred, pos_label="yes"),
         "recall": recall_score(y_test, pred, pos_label="yes"),
         "f1": f1_score(y_test, pred, pos_label="yes"),
-        "auc_roc": roc_auc_score((y_test == "yes").astype(int), proba),
+        "auc_roc": roc_auc_score(y_test_bin, proba),
         "matriz_confusion": confusion_matrix(y_test, pred, labels=["no", "yes"]),
+        "gini": 2 * roc_auc_score(y_test_bin, proba) - 1,
+        # fpr/tpr se guardan para poder reconstruir la curva ROC más adelante
+        # (en el dashboard, leyéndolos desde la base de datos) sin depender
+        # de una imagen generada localmente.
+        "fpr": fpr.tolist(),
+        "tpr": tpr.tolist(),
     }
 
     log.info(f"-- {nombre} --")
@@ -55,6 +65,7 @@ def _evaluar(nombre: str, modelo, X_test, y_test) -> dict:
     log.info(f"Recall:    {metricas['recall']:.4f}")
     log.info(f"F1-score:  {metricas['f1']:.4f}")
     log.info(f"AUC-ROC:   {metricas['auc_roc']:.4f}")
+    log.info(f"Gini:      {metricas['gini']:.4f}")
     log.info(f"Matriz de confusión [filas=real, cols=predicho] (orden: no, yes):\n{metricas['matriz_confusion']}")
 
     return metricas
@@ -112,6 +123,22 @@ def entrenar(df: pd.DataFrame, guardar_grafico: str | None = "reports/matriz_con
         disp.figure_.suptitle("Matriz de confusión — XGBoost")
         disp.figure_.savefig(guardar_grafico, dpi=150, bbox_inches="tight")
         log.info(f"Gráfico de matriz de confusión guardado en: {guardar_grafico}")
+
+        # ── Curva ROC — compara Regresión Logística vs XGBoost ────────────
+        ruta_roc = str(Path(guardar_grafico).parent / "curva_roc.png")
+        disp_roc = RocCurveDisplay(
+            fpr=metricas_baseline["fpr"], tpr=metricas_baseline["tpr"],
+            roc_auc=metricas_baseline["auc_roc"],
+        )
+        disp_roc.plot(name="Regresión Logística")
+        RocCurveDisplay(
+            fpr=metricas_xgb["fpr"], tpr=metricas_xgb["tpr"],
+            roc_auc=metricas_xgb["auc_roc"],
+        ).plot(ax=disp_roc.ax_, name="XGBoost")
+        disp_roc.ax_.legend(loc="lower right")
+        disp_roc.figure_.suptitle("Curva ROC — comparación de modelos")
+        disp_roc.figure_.savefig(ruta_roc, dpi=150, bbox_inches="tight")
+        log.info(f"Gráfico de curva ROC guardado en: {ruta_roc}")
 
     log.info(f"Tiempo total de entrenamiento: {time.time() - t0:.2f} s")
     log.info("-- Entrenamiento finalizado --")

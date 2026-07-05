@@ -1,0 +1,168 @@
+warning: in the working copy of 'dashboard.py', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/dashboard.py b/dashboard.py[m
+[1mindex d0a0b8c..beacdb1 100644[m
+[1m--- a/dashboard.py[m
+[1m+++ b/dashboard.py[m
+[36m@@ -1,5 +1,7 @@[m
+ import streamlit as st[m
+ import pandas as pd[m
+[32m+[m[32mimport json[m
+[32m+[m[32mimport matplotlib.pyplot as plt[m
+ from conexion import get_engine[m
+ [m
+ st.set_page_config(page_title="Pipeline Dashboard", layout="wide")[m
+[36m@@ -7,83 +9,92 @@[m [mst.title("Dashboard — Gestión Datos IA")[m
+ [m
+ engine = get_engine()[m
+ [m
+[31m-# ── Métricas del modelo ───────────────────────────────────────────────────────[m
+[31m-st.header("Métricas del modelo")[m
+ df_metricas = pd.read_sql("""[m
+[31m-    SELECT modelo, auc_roc, f1_score, accuracy, precision_m, recall, fecha_carga[m
+[32m+[m[32m    SELECT modelo, auc_roc, gini, f1_score, accuracy, precision_m, recall, fecha_carga[m
+     FROM metricas_modelo[m
+     ORDER BY fecha_carga DESC[m
+ """, engine)[m
+[31m-st.dataframe(df_metricas, use_container_width=True)[m
+ [m
+ if not df_metricas.empty:[m
+     ultimo = df_metricas.iloc[0][m
+[31m-    col1, col2, col3 = st.columns(3)[m
+[31m-    col1.metric("AUC-ROC",  f"{ultimo['auc_roc']:.4f}")[m
+[31m-    col2.metric("F1-Score",  f"{ultimo['f1_score']:.4f}")[m
+[31m-    col3.metric("Accuracy",  f"{ultimo['accuracy']:.4f}")[m
+[32m+[m[32m    col1, col2, col3, col4 = st.columns(4)[m
+[32m+[m[32m    col1.metric("AUC-ROC", f"{ultimo['auc_roc']:.4f}")[m
+[32m+[m[32m    col2.metric("Gini", f"{ultimo['gini']:.4f}")[m
+[32m+[m[32m    col3.metric("F1-Score", f"{ultimo['f1_score']:.4f}")[m
+[32m+[m[32m    col4.metric("Accuracy", f"{ultimo['accuracy']:.4f}")[m
+[32m+[m
+[32m+[m[32melse:[m
+[32m+[m[32m    st.info("Todavía no hay métricas del modelo cargadas.")[m
+[32m+[m
+[32m+[m[32mst.header("Matriz de confusión")[m
+[32m+[m
+[32m+[m[32mif not df_metricas.empty:[m
+[32m+[m[32m    ejecucion_reciente = ultimo["ejecucion"][m
+[32m+[m[32m    df_matriz = pd.read_sql([m
+[32m+[m[32m        "SELECT modelo, tn, fp, fn, tp FROM matriz_confusion WHERE ejecucion = %(ejecucion)s",[m
+[32m+[m[32m        engine, params={"ejecucion": ejecucion_reciente},[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    if not df_matriz.empty:[m
+[32m+[m[32m        modelos_disponibles = df_matriz["modelo"].tolist()[m
+[32m+[m[32m        modelo_matriz = st.selectbox("Modelo — matriz de confusión", modelos_disponibles)[m
+[32m+[m[32m        fila = df_matriz[df_matriz["modelo"] == modelo_matriz].iloc[0][m
+[32m+[m
+[32m+[m[32m        matriz = [[fila["tn"], fila["fp"]], [fila["fn"], fila["tp"]]][m
+[32m+[m[32m        fig, ax = plt.subplots(figsize=(4, 4))[m
+[32m+[m[32m        ax.imshow(matriz, cmap="Blues")[m
+[32m+[m[32m        for i in range(2):[m
+[32m+[m[32m            for j in range(2):[m
+[32m+[m[32m                ax.text(j, i, int(matriz[i][j]), ha="center", va="center", fontsize=14)[m
+[32m+[m[32m        ax.set_xticks([0, 1], labels=["no", "yes"])[m
+[32m+[m[32m        ax.set_yticks([0, 1], labels=["no", "yes"])[m
+[32m+[m[32m        ax.set_xlabel("Predicho")[m
+[32m+[m[32m        ax.set_ylabel("Real")[m
+[32m+[m[32m        ax.set_title(f"Matriz de confusión — {modelo_matriz}")[m
+[32m+[m[32m        st.pyplot(fig)[m
+[32m+[m[32m    else:[m
+[32m+[m[32m        st.info("Todavía no hay datos de matriz de confusión para esta ejecución.")[m
+[32m+[m[32melse:[m
+[32m+[m[32m    st.info("Todavía no hay métricas del modelo cargadas.")[m
+[32m+[m
+[32m+[m[32m# ── Curva ROC ──────────────────────────────────────────────────────────────[m
+[32m+[m[32mst.header("Curva ROC")[m
+ [m
+[31m-# ── Evolución AUC por ejecución ───────────────────────────────────────────────[m
+[31m-st.header("Evolución AUC por ejecución")[m
+ if not df_metricas.empty:[m
+[31m-    df_auc = df_metricas[["modelo", "auc_roc", "fecha_carga"]].copy()[m
+[31m-    st.line_chart(df_auc.set_index("fecha_carga")["auc_roc"])[m
+[32m+[m[32m    df_roc = pd.read_sql([m
+[32m+[m[32m        "SELECT modelo, fpr, tpr, auc_roc FROM curva_roc WHERE ejecucion = %(ejecucion)s",[m
+[32m+[m[32m        engine, params={"ejecucion": ejecucion_reciente},[m
+[32m+[m[32m    )[m
+[32m+[m
+[32m+[m[32m    if not df_roc.empty:[m
+[32m+[m[32m        fig, ax = plt.subplots(figsize=(5, 5))[m
+[32m+[m[32m        for _, fila in df_roc.iterrows():[m
+[32m+[m[32m            fpr = json.loads(fila["fpr"])[m
+[32m+[m[32m            tpr = json.loads(fila["tpr"])[m
+[32m+[m[32m            ax.plot(fpr, tpr, label=f"{fila['modelo']} (AUC={fila['auc_roc']:.3f})")[m
+[32m+[m[32m        ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Aleatorio")[m
+[32m+[m[32m        ax.set_xlabel("Tasa de falsos positivos")[m
+[32m+[m[32m        ax.set_ylabel("Tasa de verdaderos positivos")[m
+[32m+[m[32m        ax.set_title("Curva ROC — comparación de modelos")[m
+[32m+[m[32m        ax.legend(loc="lower right")[m
+[32m+[m[32m        st.pyplot(fig)[m
+[32m+[m[32m    else:[m
+[32m+[m[32m        st.info("Todavía no hay datos de curva ROC para esta ejecución.")[m
+[32m+[m[32melse:[m
+[32m+[m[32m    st.info("Todavía no hay métricas del modelo cargadas.")[m
+[32m+[m
+[32m+[m
+[32m+[m[32mst.header("Métricas de rendimiento del pipeline")[m
+ [m
+[31m-# ── Rendimiento del pipeline ──────────────────────────────────────────────────[m
+[31m-st.header("Rendimiento del pipeline")[m
+ df_rend = pd.read_sql("""[m
+     SELECT etapa, latencia_seg, filas_entrada, filas_salida, completitud, exito[m
+     FROM rendimiento_pipeline[m
+     ORDER BY fecha_carga DESC[m
+     LIMIT 20[m
+ """, engine)[m
+[31m-st.dataframe(df_rend, use_container_width=True)[m
+ [m
+ if not df_rend.empty:[m
+[32m+[m[32m    st.subheader("Tiempo (segundos) que tardó cada etapa")[m
+     st.bar_chart(df_rend.set_index("etapa")["latencia_seg"])[m
+[31m-[m
+[31m-# ── Depósitos por trabajo ─────────────────────────────────────────────────────[m
+[31m-st.header("Depósitos por tipo de trabajo")[m
+[31m-df_trabajo = pd.read_sql("""[m
+[31m-    SELECT job,[m
+[31m-           COUNT(*) AS total,[m
+[31m-           SUM(CASE WHEN deposit = 'yes' THEN 1 ELSE 0 END) AS depositaron,[m
+[31m-           ROUND([m
+[31m-               SUM(CASE WHEN deposit = 'yes' THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2[m
+[31m-           ) AS pct_deposito[m
+[31m-    FROM clientes_validos[m
+[31m-    GROUP BY job[m
+[31m-    ORDER BY total DESC[m
+[31m-""", engine)[m
+[31m-st.dataframe(df_trabajo, use_container_width=True)[m
+[31m-if not df_trabajo.empty:[m
+[31m-    st.bar_chart(df_trabajo.set_index("job")["pct_deposito"])[m
+[31m-[m
+[31m-# ── Últimos errores ───────────────────────────────────────────────────────────[m
+[31m-st.header("Últimos registros erróneos")[m
+[31m-df_errores = pd.read_sql("""[m
+[31m-    SELECT ejecucion, condicion, fila_original, motivo_error, age, job, deposit, fecha_carga[m
+[31m-    FROM registros_erroneos[m
+[31m-    ORDER BY fecha_carga DESC[m
+[31m-    LIMIT 20[m
+[31m-""", engine)[m
+[31m-st.dataframe(df_errores, use_container_width=True)[m
+[31m-[m
+[31m-# ── Resumen de ejecuciones ────────────────────────────────────────────────────[m
+[31m-st.header("Resumen de ejecuciones")[m
+[31m-df_resumen = pd.read_sql("""[m
+[31m-    SELECT v.ejecucion, v.condicion, v.total_validos,[m
+[31m-           COALESCE(e.total_errores, 0) AS total_errores, v.fecha_carga[m
+[31m-    FROM ([m
+[31m-        SELECT ejecucion, condicion, COUNT(*) AS total_validos, MAX(fecha_carga) AS fecha_carga[m
+[31m-        FROM clientes_validos[m
+[31m-        GROUP BY ejecucion, condicion[m
+[31m-    ) v[m
+[31m-    LEFT JOIN ([m
+[31m-        SELECT ejecucion, condicion, COUNT(*) AS total_errores[m
+[31m-        FROM registros_erroneos[m
+[31m-        GROUP BY ejecucion, condicion[m
+[31m-    ) e ON v.ejecucion = e.ejecucion AND v.condicion = e.condicion[m
+[31m-    ORDER BY v.fecha_carga DESC[m
+[31m-""", engine)[m
+[31m-st.dataframe(df_resumen, use_container_width=True)[m
+[32m+[m[32melse:[m
+[32m+[m[32m    st.info("Todavía no hay datos de rendimiento del pipeline.")[m
+\ No newline at end of file[m

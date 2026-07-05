@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
@@ -113,6 +114,7 @@ def guardar_en_oracle(
                 "recall":      round(resultado_modelo[clave]["recall"],    4),
                 "f1_score":    round(resultado_modelo[clave]["f1"],        4),
                 "auc_roc":     round(resultado_modelo[clave]["auc_roc"],   4),
+                "gini":        round(resultado_modelo[clave]["gini"],      4),
             }
             for clave, nombre in [
                 ("baseline", "Regresión Logística"),
@@ -123,6 +125,40 @@ def guardar_en_oracle(
             "metricas_modelo", conn, if_exists="append", index=False
         )
         log.info("Oracle | metricas_modelo: 2 filas (baseline + xgboost)")
+
+        # ── 3b. Matriz de confusión (valores, no imagen) ──────────────────────
+        filas_matriz = []
+        for clave, nombre in [("baseline", "Regresión Logística"), ("xgboost", "XGBoost")]:
+            cm = resultado_modelo[clave]["matriz_confusion"]
+            # labels=["no","yes"] -> filas=real, cols=predicho
+            filas_matriz.append({
+                "ejecucion": ejecucion,
+                "condicion": condicion,
+                "modelo":    nombre,
+                "tn": int(cm[0][0]), "fp": int(cm[0][1]),
+                "fn": int(cm[1][0]), "tp": int(cm[1][1]),
+            })
+        pd.DataFrame(filas_matriz).to_sql(
+            "matriz_confusion", conn, if_exists="append", index=False
+        )
+        log.info("Oracle | matriz_confusion: 2 filas (baseline + xgboost)")
+
+        # ── 3c. Curva ROC (puntos fpr/tpr, no imagen) ─────────────────────────
+        filas_roc = []
+        for clave, nombre in [("baseline", "Regresión Logística"), ("xgboost", "XGBoost")]:
+            m = resultado_modelo[clave]
+            filas_roc.append({
+                "ejecucion": ejecucion,
+                "condicion": condicion,
+                "modelo":    nombre,
+                "fpr":       json.dumps(m["fpr"]),
+                "tpr":       json.dumps(m["tpr"]),
+                "auc_roc":   round(m["auc_roc"], 4),
+            })
+        pd.DataFrame(filas_roc).to_sql(
+            "curva_roc", conn, if_exists="append", index=False
+        )
+        log.info("Oracle | curva_roc: 2 filas (baseline + xgboost)")
 
         # ── 4. Rendimiento del pipeline ───────────────────────────────────────
         filas_rend = [
