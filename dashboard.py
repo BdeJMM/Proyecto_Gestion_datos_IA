@@ -10,7 +10,7 @@ st.title("Dashboard — Gestión Datos IA")
 engine = get_engine()
 
 df_metricas = pd.read_sql("""
-    SELECT ejecucion, modelo, auc_roc, gini, f1_score, accuracy, precision_m, recall, fecha_carga
+    SELECT ejecucion, condicion, modelo, auc_roc, gini, f1_score, accuracy, precision_m, recall, fecha_carga
     FROM metricas_modelo
     ORDER BY fecha_carga DESC
 """, engine)
@@ -30,9 +30,27 @@ st.header("Matriz de confusión")
 
 if not df_metricas.empty:
     ejecucion_reciente = ultimo["ejecucion"]
+
+    # Como "completo" y "50pct" comparten el mismo timestamp de ejecución,
+    # hace falta elegir también la condición para no mezclar ambas corridas.
+    condiciones_disponibles = (
+        df_metricas[df_metricas["ejecucion"] == ejecucion_reciente]["condicion"]
+        .unique().tolist()
+    )
+    ETIQUETAS_CONDICION = {
+        "completo": "Dataset completo",
+        "50pct": "Dataset al 50%",
+    }
+    condicion_sel = st.selectbox(
+        "Condición del pipeline",
+        condiciones_disponibles,
+        format_func=lambda c: ETIQUETAS_CONDICION.get(c, c),
+    )
+
     df_matriz = pd.read_sql(
-        "SELECT modelo, tn, fp, fn, tp FROM matriz_confusion WHERE ejecucion = %(ejecucion)s",
-        engine, params={"ejecucion": ejecucion_reciente},
+        "SELECT modelo, tn, fp, fn, tp FROM matriz_confusion "
+        "WHERE ejecucion = %(ejecucion)s AND condicion = %(condicion)s",
+        engine, params={"ejecucion": ejecucion_reciente, "condicion": condicion_sel},
     )
 
     if not df_matriz.empty:
@@ -62,8 +80,9 @@ st.header("Curva ROC")
 
 if not df_metricas.empty:
     df_roc = pd.read_sql(
-        "SELECT modelo, fpr, tpr, auc_roc FROM curva_roc WHERE ejecucion = %(ejecucion)s",
-        engine, params={"ejecucion": ejecucion_reciente},
+        "SELECT modelo, fpr, tpr, auc_roc FROM curva_roc "
+        "WHERE ejecucion = %(ejecucion)s AND condicion = %(condicion)s",
+        engine, params={"ejecucion": ejecucion_reciente, "condicion": condicion_sel},
     )
 
     if not df_roc.empty:
