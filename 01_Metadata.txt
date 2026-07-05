@@ -1,0 +1,18 @@
+Variable		Descripción							Tipo
+age			Edad del cliente						Numérica
+job			Trabajo (admin., blue-collar, etc.)				Categórica
+marital			Estado civil (married, single, divorced)			Categórica
+education		Nivel educativo (primary, secondary, tertiary)			Categórica
+default			¿Tiene crédito en default? (yes/no)				Binaria
+balance			Saldo promedio en la cuenta					Numérica
+housing			¿Tiene préstamo hipotecario? (yes/no)				Binaria
+loan			¿Tiene préstamo personal? (yes/no)				Binaria
+contact			Canal de contacto (cellular, telephone, unknown)		Categórica
+day			Día del último contacto (1-31)					Numérica
+month			Mes del último contacto (jan, feb, ..., dec)			Categórica
+duration		Duración del último contacto (segundos)				Numérica
+campaign		Núm. de contactos en esta campaña				Numérica
+pdays			Días desde último contacto anterior (-1 = no contacto previo)	Numérica
+previous		Núm. de contactos antes de esta campaña				Numérica
+poutcome		Resultado de la campaña anterior (unknown, failure, success)	Categórica
+deposit			¿El cliente suscribió el depósito? (yes/no)			Target
