@@ -18,8 +18,32 @@ ETIQUETAS_CONDICION = {
     "50pct": "Dataset al 50%",
 }
 
-# ── Ruta al script del pipeline (misma carpeta que este dashboard) ───────────
+# ── Ruta al script del pipeline y a la carpeta de logs (misma carpeta que
+# este dashboard) ─────────────────────────────────────────────────────────────
 RUTA_PIPELINE = Path(__file__).resolve().parent / "pipeline.py"
+RUTA_LOGS     = Path(__file__).resolve().parent / "logs"
+
+
+def _obtener_ultimo_log_disco():
+    """Busca en logs/ el archivo pipeline_*.log más reciente (por fecha de
+    modificación) y devuelve (nombre_archivo, contenido) o None si no hay
+    ninguno todavía. Así el dashboard siempre puede mostrar el último log
+    aunque se abra en una sesión nueva o se recargue la página."""
+    if not RUTA_LOGS.exists():
+        return None
+    archivos = sorted(
+        RUTA_LOGS.glob("pipeline_*.log"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    if not archivos:
+        return None
+    ultimo = archivos[0]
+    try:
+        contenido = ultimo.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    return ultimo.name, contenido
 
 
 def _ejecutar_pipeline_subproceso(log_placeholder) -> int:
@@ -70,12 +94,25 @@ if lanzar and not st.session_state.pipeline_running:
 if st.session_state.pipeline_running:
     st.sidebar.info("Ejecutando pipeline… esto puede tardar unos minutos.")
 
-# El expander del log SIEMPRE se muestra si hay algo que mostrar (corriendo
-# o ya terminado), así se puede minimizar/expandir sin perder el contenido.
+# El expander del log SIEMPRE se muestra, haya o no una ejecución en esta
+# sesión: si el pipeline está corriendo o ya corrió en esta sesión, se usa
+# ese log; si no, se cae al último log guardado en disco (logs/), así el
+# dashboard siempre tiene algo que mostrar aunque se recargue la página o
+# sea una sesión nueva.
 if st.session_state.pipeline_running or st.session_state.pipeline_log:
-    with st.expander("📜 Log del pipeline", expanded=st.session_state.pipeline_running):
+    nombre_log    = "ejecución actual"
+    contenido_log = st.session_state.pipeline_log
+else:
+    log_disco = _obtener_ultimo_log_disco()
+    nombre_log, contenido_log = log_disco if log_disco else (None, "")
+
+mostrar_expander = st.session_state.pipeline_running or bool(contenido_log)
+
+if mostrar_expander:
+    titulo = f"📜 Log del pipeline — {nombre_log}" if nombre_log else "📜 Log del pipeline"
+    with st.expander(titulo, expanded=st.session_state.pipeline_running):
         log_placeholder = st.empty()
-        log_placeholder.code(st.session_state.pipeline_log, language="text")
+        log_placeholder.code(contenido_log, language="text")
 
         if st.session_state.pipeline_running:
             codigo_salida = _ejecutar_pipeline_subproceso(log_placeholder)
@@ -86,6 +123,8 @@ if st.session_state.pipeline_running or st.session_state.pipeline_log:
             # session_state, así que no desaparece con este rerun.
             time.sleep(1)
             st.rerun()
+else:
+    st.info("Todavía no hay ningún log de pipeline guardado en `logs/`.")
 
 if st.session_state.pipeline_exit_code is not None and not st.session_state.pipeline_running:
     if st.session_state.pipeline_exit_code == 0:

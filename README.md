@@ -18,7 +18,6 @@ Pipeline de datos que ingiere, limpia, valida y modela un dataset de clientes ba
 ├── consultas.py            # Consultas de análisis sobre los datos guardados
 ├── pipeline.py             # Orquestador — corre el pipeline completo
 ├── dashboard.py             # Dashboard técnico (Streamlit)
-├── pages/                   # Páginas adicionales del dashboard (ej. vista para analistas)
 ├── Dockerfile / docker-compose.yml
 └── requirements.txt
 ```
@@ -66,8 +65,6 @@ Los logs de cada corrida quedan en `logs/`, y un resumen comparativo en `data/pr
 ```bash
 streamlit run dashboard.py
 ```
-
-Si existe una carpeta `pages/` junto a `dashboard.py`, Streamlit agrega automáticamente esas páginas al menú lateral de navegación (por ejemplo, una vista simplificada de estadísticas del modelo pensada para analistas).
 
 ### Consultar los datos por línea de comandos
 
