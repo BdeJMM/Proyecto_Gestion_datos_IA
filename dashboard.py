@@ -105,14 +105,30 @@ else:
 # ── Rendimiento del pipeline (no depende del selector de arriba) ─────────────
 st.header("Métricas de rendimiento del pipeline")
 df_rend = pd.read_sql("""
-    SELECT etapa, latencia_seg, filas_entrada, filas_salida, completitud, exito
+    SELECT ejecucion, condicion, etapa, latencia_seg, filas_entrada, filas_salida, completitud, exito, fecha_carga
     FROM rendimiento_pipeline
     ORDER BY fecha_carga DESC
-    LIMIT 20
 """, engine)
 
 if not df_rend.empty:
+    # Nos quedamos solo con la ejecución más reciente. Antes, el LIMIT 20 sin
+    # filtrar por ejecución mezclaba filas de corridas distintas, y además
+    # "etapa" se repite una vez por cada condición (completo / 50%) dentro de
+    # una misma ejecución. st.bar_chart suma los valores cuando el eje X tiene
+    # etiquetas repetidas, así que una etapa como "Modelado" terminaba
+    # mostrando la SUMA de varias filas (ej. varias ejecuciones y/o ambas
+    # condiciones) en vez del tiempo real de una corrida — de ahí los ~80s
+    # que no coinciden con ningún valor real del log.
+    ejecucion_rend_reciente = df_rend.iloc[0]["ejecucion"]
+    df_rend_reciente = df_rend[df_rend["ejecucion"] == ejecucion_rend_reciente].copy()
+    df_rend_reciente["condicion"] = df_rend_reciente["condicion"].map(
+        lambda c: ETIQUETAS_CONDICION.get(c, c)
+    )
+
     st.subheader("Tiempo (segundos) que tardó cada etapa")
-    st.bar_chart(df_rend.set_index("etapa")["latencia_seg"])
+    df_pivot = df_rend_reciente.pivot_table(
+        index="etapa", columns="condicion", values="latencia_seg", aggfunc="first"
+    )
+    st.bar_chart(df_pivot)
 else:
     st.info("Todavía no hay datos de rendimiento del pipeline.")
