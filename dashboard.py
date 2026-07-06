@@ -23,7 +23,9 @@ RUTA_PIPELINE = Path(__file__).resolve().parent / "pipeline.py"
 
 
 def _ejecutar_pipeline_subproceso(log_placeholder) -> int:
-    """Lanza pipeline.py como subproceso y va mostrando su log en vivo."""
+    """Lanza pipeline.py como subproceso, va mostrando su log en vivo y lo
+    guarda en session_state para que quede disponible incluso después de
+    terminar (y se pueda minimizar sin que desaparezca)."""
     proceso = subprocess.Popen(
         [sys.executable, str(RUTA_PIPELINE)],
         stdout=subprocess.PIPE,
@@ -36,8 +38,9 @@ def _ejecutar_pipeline_subproceso(log_placeholder) -> int:
     lineas = []
     for linea in proceso.stdout:
         lineas.append(linea)
-        # Mantener solo las últimas ~300 líneas para no saturar la UI
-        log_placeholder.code("".join(lineas[-300:]), language="text")
+        texto_actual = "".join(lineas[-300:])
+        st.session_state.pipeline_log = texto_actual
+        log_placeholder.code(texto_actual, language="text")
 
     proceso.wait()
     return proceso.returncode
@@ -48,6 +51,10 @@ st.sidebar.header("⚙️ Pipeline")
 
 if "pipeline_running" not in st.session_state:
     st.session_state.pipeline_running = False
+if "pipeline_log" not in st.session_state:
+    st.session_state.pipeline_log = ""
+if "pipeline_exit_code" not in st.session_state:
+    st.session_state.pipeline_exit_code = None
 
 lanzar = st.sidebar.button(
     "▶️ Ejecutar pipeline completo",
@@ -57,23 +64,42 @@ lanzar = st.sidebar.button(
 
 if lanzar and not st.session_state.pipeline_running:
     st.session_state.pipeline_running = True
+    st.session_state.pipeline_exit_code = None
     st.rerun()
 
 if st.session_state.pipeline_running:
     st.sidebar.info("Ejecutando pipeline… esto puede tardar unos minutos.")
-    with st.expander("📜 Log del pipeline en vivo", expanded=True):
+
+# El expander del log SIEMPRE se muestra si hay algo que mostrar (corriendo
+# o ya terminado), así se puede minimizar/expandir sin perder el contenido.
+if st.session_state.pipeline_running or st.session_state.pipeline_log:
+    with st.expander("📜 Log del pipeline", expanded=st.session_state.pipeline_running):
         log_placeholder = st.empty()
-        codigo_salida = _ejecutar_pipeline_subproceso(log_placeholder)
+        log_placeholder.code(st.session_state.pipeline_log, language="text")
 
-    st.session_state.pipeline_running = False
+        if st.session_state.pipeline_running:
+            codigo_salida = _ejecutar_pipeline_subproceso(log_placeholder)
+            st.session_state.pipeline_running = False
+            st.session_state.pipeline_exit_code = codigo_salida
+            # Recargar la app para que las métricas de abajo (df_metricas, etc.)
+            # se actualicen con los datos nuevos. El log ya quedó guardado en
+            # session_state, así que no desaparece con este rerun.
+            time.sleep(1)
+            st.rerun()
 
-    if codigo_salida == 0:
+if st.session_state.pipeline_exit_code is not None and not st.session_state.pipeline_running:
+    if st.session_state.pipeline_exit_code == 0:
         st.sidebar.success("✅ Pipeline finalizado correctamente.")
     else:
-        st.sidebar.error(f"❌ El pipeline terminó con errores (código {codigo_salida}).")
+        st.sidebar.error(
+            f"❌ El pipeline terminó con errores (código {st.session_state.pipeline_exit_code})."
+        )
 
-    time.sleep(1)
-    st.rerun()
+if st.session_state.pipeline_log:
+    if st.sidebar.button("🗑️ Limpiar log", use_container_width=True):
+        st.session_state.pipeline_log = ""
+        st.session_state.pipeline_exit_code = None
+        st.rerun()
 
 st.sidebar.divider()
 
