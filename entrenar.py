@@ -101,16 +101,16 @@ def entrenar(df: pd.DataFrame, guardar_grafico: str | None = "reports/matriz_con
     )
 
     modelo_xgb = XGBClassifier(
-        n_estimators=1000,       # techo alto — el early stopping decide cuándo parar
+        n_estimators=400,        # techo más bajo — con lr=0.1 converge mucho antes
         max_depth=5,
-        learning_rate=0.05,      # más bajo + más rondas = aprendizaje más fino
+        learning_rate=0.1,       # más alto = converge en menos rondas (más rápido)
         subsample=0.8,           # cada árbol ve 80% de las filas (regulariza + acelera)
         colsample_bytree=0.8,    # cada árbol ve 80% de las columnas (regulariza + acelera)
         eval_metric="logloss",
         random_state=42,
         tree_method="hist",      # método de construcción de árboles más rápido
         n_jobs=-1,               # usa todos los núcleos disponibles
-        early_stopping_rounds=30,
+        early_stopping_rounds=15,  # paciencia más corta — corta antes al estancarse
     )
     modelo_xgb.fit(
         X_tr_xgb, y_tr_xgb,
