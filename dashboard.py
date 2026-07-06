@@ -1,6 +1,10 @@
 import streamlit as st
 import pandas as pd
 import json
+import subprocess
+import sys
+import time
+from pathlib import Path
 import matplotlib.pyplot as plt
 from conexion import get_engine
 
@@ -14,6 +18,65 @@ ETIQUETAS_CONDICION = {
     "50pct": "Dataset al 50%",
 }
 
+# ── Ruta al script del pipeline (misma carpeta que este dashboard) ───────────
+RUTA_PIPELINE = Path(__file__).resolve().parent / "pipeline.py"
+
+
+def _ejecutar_pipeline_subproceso(log_placeholder) -> int:
+    """Lanza pipeline.py como subproceso y va mostrando su log en vivo."""
+    proceso = subprocess.Popen(
+        [sys.executable, str(RUTA_PIPELINE)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        cwd=str(RUTA_PIPELINE.parent),
+    )
+
+    lineas = []
+    for linea in proceso.stdout:
+        lineas.append(linea)
+        # Mantener solo las últimas ~300 líneas para no saturar la UI
+        log_placeholder.code("".join(lineas[-300:]), language="text")
+
+    proceso.wait()
+    return proceso.returncode
+
+
+# ── Panel lateral — ejecutar el pipeline desde la UI ─────────────────────────
+st.sidebar.header("⚙️ Pipeline")
+
+if "pipeline_running" not in st.session_state:
+    st.session_state.pipeline_running = False
+
+lanzar = st.sidebar.button(
+    "▶️ Ejecutar pipeline completo",
+    disabled=st.session_state.pipeline_running,
+    use_container_width=True,
+)
+
+if lanzar and not st.session_state.pipeline_running:
+    st.session_state.pipeline_running = True
+    st.rerun()
+
+if st.session_state.pipeline_running:
+    st.sidebar.info("Ejecutando pipeline… esto puede tardar unos minutos.")
+    with st.expander("📜 Log del pipeline en vivo", expanded=True):
+        log_placeholder = st.empty()
+        codigo_salida = _ejecutar_pipeline_subproceso(log_placeholder)
+
+    st.session_state.pipeline_running = False
+
+    if codigo_salida == 0:
+        st.sidebar.success("✅ Pipeline finalizado correctamente.")
+    else:
+        st.sidebar.error(f"❌ El pipeline terminó con errores (código {codigo_salida}).")
+
+    time.sleep(1)
+    st.rerun()
+
+st.sidebar.divider()
+
 df_metricas = pd.read_sql("""
     SELECT ejecucion, condicion, modelo, auc_roc, gini, f1_score, accuracy, precision_m, recall, fecha_carga
     FROM metricas_modelo
@@ -21,7 +84,7 @@ df_metricas = pd.read_sql("""
 """, engine)
 
 if df_metricas.empty:
-    st.info("Todavía no hay métricas del modelo cargadas.")
+    st.info("Todavía no hay métricas del modelo cargadas. Usa el botón **▶️ Ejecutar pipeline completo** en el panel lateral para generarlas.")
 else:
     ejecucion_reciente = df_metricas.iloc[0]["ejecucion"]
     df_ejecucion = df_metricas[df_metricas["ejecucion"] == ejecucion_reciente]
