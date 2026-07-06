@@ -80,25 +80,48 @@ def entrenar(df: pd.DataFrame, guardar_grafico: str | None = "reports/matriz_con
     )
     log.info(f"Train: {X_train.shape[0]} filas | Test: {X_test.shape[0]} filas")
 
-    pipe_baseline = Pipeline([
-        ("prep", _preprocesador()),
-        ("clf", LogisticRegression(max_iter=1000, random_state=42)),
-    ])
-    pipe_baseline.fit(X_train, y_train)
+    # ── Preprocesador compartido — se ajusta UNA sola vez, no una por modelo ──
+    prep = _preprocesador()
+    X_train_t = prep.fit_transform(X_train, y_train)
+    X_test_t = prep.transform(X_test)
+
+    modelo_baseline = LogisticRegression(max_iter=1000, random_state=42)
+    modelo_baseline.fit(X_train_t, y_train)
+    # El Pipeline se arma con el preprocesador YA ajustado — llamar .predict()
+    # sobre él no vuelve a ajustar nada, solo encadena transform() + predict().
+    pipe_baseline = Pipeline([("prep", prep), ("clf", modelo_baseline)])
     metricas_baseline = _evaluar("Regresión Logística (baseline)", pipe_baseline, X_test, y_test)
 
-    pipe_xgb = Pipeline([
-        ("prep", _preprocesador()),
-        ("clf", XGBClassifier(
-            n_estimators=200,
-            max_depth=5,
-            learning_rate=0.1,
-            eval_metric="logloss",
-            random_state=42,
-        )),
-    ])
     y_train_bin = (y_train == "yes").astype(int)
-    pipe_xgb.fit(X_train, y_train_bin)
+
+    # Se separa un pequeño set de validación DEL TRAIN (nunca del test) para
+    # que el early stopping decida cuándo parar sin tocar los datos de prueba.
+    X_tr_xgb, X_val_xgb, y_tr_xgb, y_val_xgb = train_test_split(
+        X_train_t, y_train_bin, test_size=0.15, random_state=42, stratify=y_train_bin
+    )
+
+    modelo_xgb = XGBClassifier(
+        n_estimators=1000,       # techo alto — el early stopping decide cuándo parar
+        max_depth=5,
+        learning_rate=0.05,      # más bajo + más rondas = aprendizaje más fino
+        subsample=0.8,           # cada árbol ve 80% de las filas (regulariza + acelera)
+        colsample_bytree=0.8,    # cada árbol ve 80% de las columnas (regulariza + acelera)
+        eval_metric="logloss",
+        random_state=42,
+        tree_method="hist",      # método de construcción de árboles más rápido
+        n_jobs=-1,               # usa todos los núcleos disponibles
+        early_stopping_rounds=30,
+    )
+    modelo_xgb.fit(
+        X_tr_xgb, y_tr_xgb,
+        eval_set=[(X_val_xgb, y_val_xgb)],
+        verbose=False,
+    )
+    log.info(
+        f"XGBoost — detenido en la ronda {modelo_xgb.best_iteration} "
+        f"de {modelo_xgb.n_estimators} configuradas (early stopping)"
+    )
+    pipe_xgb = Pipeline([("prep", prep), ("clf", modelo_xgb)])
     class _Adaptador:
         def __init__(self, pipe):
             self.pipe = pipe
