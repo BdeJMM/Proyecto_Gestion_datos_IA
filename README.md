@@ -18,7 +18,6 @@ Pipeline de datos que ingiere, limpia, valida y modela un dataset de clientes ba
 ├── consultas.py            # Consultas de análisis sobre los datos guardados
 ├── pipeline.py             # Orquestador — corre el pipeline completo
 ├── dashboard.py             # Dashboard técnico (Streamlit)
-├── pages/                   # Páginas adicionales del dashboard (ej. vista para analistas)
 ├── Dockerfile / docker-compose.yml
 └── requirements.txt
 ```
